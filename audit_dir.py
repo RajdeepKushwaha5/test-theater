@@ -5,6 +5,8 @@ collects test_*.py). Reuses detect.py's analyze() unmodified, tags every finding
 source file, and exits nonzero if the target path does not exist."""
 import sys, os, json
 
+sys.dont_write_bytecode = True  # never ship a __pycache__ into the play package
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import detect
 
