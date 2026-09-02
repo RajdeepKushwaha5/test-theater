@@ -49,10 +49,6 @@ is already reachable from that ref:
 Anything that cannot be attributed stays `GIT_INDETERMINATE` rather than being blamed on
 the branch. An unresolvable ref falls back to a whole-repository audit and says so.
 
-> **Note:** rote remembers the last parameter values used in a workspace, so omitting
-> `base_ref` after a run that set it will reuse the old value. The report header always
-> names the mode and the ref it used, so this is visible rather than silent. Pass
-> `base_ref=` explicitly to force a whole-repository audit.
 
 ## Verdicts
 
