@@ -26,6 +26,34 @@ A shallow clone is reported as `shallow-clone` rather than given a uniform,
 meaningless date, and a target outside a repository is reported as `not-a-git-repo`.
 Neither fails the run.
 
+## Use it as a pull-request gate
+
+```bash
+rote play run https://play.modiqo.ai/rajdeepkushwaha/test-theater   target=./tests base_ref=origin/main
+```
+
+With `base_ref` set, findings are split by whether the commit that introduced the line
+is already reachable from that ref:
+
+```
+# Test theatre introduced by this branch (vs origin/main): 1
+
+## NO_VALUE_CHECK (1)
+- test_config.py:253 — added 2026-09-02 (0d ago, f97d4b4a)
+  `test_new_config_thing` — NO_VALUE_CHECK/no-assertion
+
+## Suppressed
+3 finding(s) predate origin/main and are not this branch's doing.
+```
+
+Anything that cannot be attributed stays `GIT_INDETERMINATE` rather than being blamed on
+the branch. An unresolvable ref falls back to a whole-repository audit and says so.
+
+> **Note:** rote remembers the last parameter values used in a workspace, so omitting
+> `base_ref` after a run that set it will reuse the old value. The report header always
+> names the mode and the ref it used, so this is visible rather than silent. Pass
+> `base_ref=` explicitly to force a whole-repository audit.
+
 ## Verdicts
 
 | verdict | what is being claimed |
