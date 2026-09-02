@@ -31,7 +31,7 @@ Neither fails the run.
 | verdict | what is being claimed |
 |---|---|
 | `CANNOT_FAIL` | Provably cannot fail. Every assertion is on literals (`assert 1 == 1`), or the assertion is swallowed by a bare `except: pass`. |
-| `NO_VALUE_CHECK` | Fails only if the code *raises*. Never checks a value — no assertion at all, or only that a mock was called. |
+| `NO_VALUE_CHECK` | Fails only if the code *raises*. No assertion anywhere — not in the test, not in a helper it calls. |
 | `WEAK` | Permanently skipped, or a byte-identical duplicate of another test body. |
 | `NOT_ANALYZED` | Not proven unfailable. **This is not a claim that the test is good.** |
 
@@ -60,31 +60,40 @@ python3 detect.py fixtures/tests/test_styles.py
 Each fixture test carries a `# EXPECT:` comment stating the verdict it must receive.
 All 16 match.
 
-## On a real codebase
+## On real codebases
 
-Run against [`psf/requests`](https://github.com/psf/requests) — 347 test functions,
-zero execution:
+Four public repositories, no execution, `python3` + `git` only:
+
+| repo | tests | flagged |
+|---|---:|---:|
+| psf/requests | 347 | 11 |
+| pallets/flask | 372 | 3 |
+| pallets/click | 538 | 7 |
+| boto/boto3 | 444 | 1 |
+
+Getting there meant removing **seven** false-positive classes, each found by running
+against code the author did not write:
+
+1. `import X` module tracking (only `from X import` was followed)
+2. typed `except` handlers read as swallowed assertions
+3. `skipif` inside `@parametrize` marks read as a permanent skip
+4. `pytest.fail()` counted as a literal assertion
+5. `no-subject-call` — removed entirely; unsound for every fixture-based test
+6. functions merely *nested* inside a test (route handlers, CLI commands named `test`)
+7. assertions delegated to a same-file helper, and `mock.assert_called_with` — which
+   does check values, so claiming otherwise was simply wrong
+
+Across those four repos that took the raw output from **200 findings to 22**. The
+survivors are genuine: three tests in `requests` that make a real call and assert
+nothing, dating from 2017.
 
 ```
-347 tests → 12 NO_VALUE_CHECK · 1 WEAK · 334 NOT_ANALYZED   (705ms)
+test_packages.py:4 — added 2017-05-29 (3382d ago, 1278ecdf)
+  `test_can_access_urllib3_attribute` — NO_VALUE_CHECK/no-assertion
 ```
 
-The git join makes the result readable: every finding in `requests` dates from 2012
-to 2023. This is a legacy suite, not AI bloat — which is exactly the distinction the
-ages exist to draw.
-
-Including three in requests' own suite that make a real call and assert nothing:
-
-```
-test_can_access_urllib3_attribute   NO_VALUE_CHECK/no-assertion   test_packages.py:4
-test_can_access_idna_attribute      NO_VALUE_CHECK/no-assertion   test_packages.py:8
-test_can_access_chardet_attribute   NO_VALUE_CHECK/no-assertion   test_packages.py:12
-```
-
-Getting to 13 trustworthy findings took removing four false-positive classes first:
-`import X` module tracking, typed `except` handlers being read as swallowed
-assertions, `skipif` inside `@parametrize` marks, and `pytest.fail()` being counted
-as a literal assertion.
+Every removal made the tool claim *less*. That is the point: a confident wrong
+"this test is worthless" costs a reviewer more than silence.
 
 ## Licence
 
