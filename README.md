@@ -12,7 +12,19 @@ rote play run https://play.modiqo.ai/rajdeepkushwaha/test-theater target=./tests
 ```
 
 Zero credentials. Never imports or executes the suite under audit: only `ast.parse`
-touches it. Needs `python3` and nothing else.
+touches it. Needs `python3` and `git`.
+
+Every finding carries the commit and age of the line that introduced it, so recently
+added theatre is separable from decade-old decisions:
+
+```
+test_packages.py:4  — added 2017-05-29 (3382d ago, 1278ecdf)
+  `test_can_access_urllib3_attribute` — NO_VALUE_CHECK/no-assertion
+```
+
+A shallow clone is reported as `shallow-clone` rather than given a uniform,
+meaningless date, and a target outside a repository is reported as `not-a-git-repo`.
+Neither fails the run.
 
 ## Verdicts
 
@@ -54,8 +66,12 @@ Run against [`psf/requests`](https://github.com/psf/requests) — 347 test funct
 zero execution:
 
 ```
-347 tests → 12 NO_VALUE_CHECK · 1 WEAK · 334 NOT_ANALYZED
+347 tests → 12 NO_VALUE_CHECK · 1 WEAK · 334 NOT_ANALYZED   (705ms)
 ```
+
+The git join makes the result readable: every finding in `requests` dates from 2012
+to 2023. This is a legacy suite, not AI bloat — which is exactly the distinction the
+ages exist to draw.
 
 Including three in requests' own suite that make a real call and assert nothing:
 

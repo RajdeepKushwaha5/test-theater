@@ -29,4 +29,4 @@ else:
                     finding["file"] = rel
                     results.append(finding)
 
-print(json.dumps(results, indent=1))
+print(json.dumps(results, separators=(",", ":")))
