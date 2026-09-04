@@ -11,13 +11,14 @@
  * @rote-frontmatter
  * ---
  * name: test-theater
- * description: "Finds Python tests that cannot fail, without running them. CANNOT_FAIL marks tests whose assertions are all on literals, or are swallowed by a bare except. NO_VALUE_CHECK marks tests with no assertion anywhere. WEAK marks permanently-skipped and duplicate bodies. Everything else is EXAMINED: read, with no pattern matched, which is never a claim the test is good. NOT_ANALYZED is kept for a test that delegates its assertions to a same-file helper: the helper is known to assert, which is why the test is not flagged, but whether it checks a real value was never judged, so the test is neither cleared nor flagged. It is reported separately so a judged-clean suite and an unjudged one cannot look alike. Reads pytest assert, unittest self.assert*, async tests, and assertions delegated to same-file helpers. Every finding carries the commit and age of the line that introduced it; pass base_ref=origin/main for a per-pull-request gate listing only what your branch added. Names any path it could not read, and shows no findings at all when a step was blocked or truncated rather than passing a partial run off as a clean one. Pass target=demo to audit the bundled suite with no repository and no setup. Never imports or executes the suite: only ast.parse touches it. Zero credentials, python3 and git."
+ * description: "Finds Python tests that cannot fail, without running them. CANNOT_FAIL marks tests whose assertions are all on literals, or are swallowed by a bare except. NO_VALUE_CHECK marks tests with no assertion anywhere. WEAK marks permanently-skipped and duplicate bodies. Everything else is EXAMINED: read, with no pattern matched, which is never a claim the test is good. NOT_ANALYZED is kept for a test that delegates its assertions to a same-file helper: the helper is known to assert, which is why the test is not flagged, but whether it checks a real value was never judged, so the test is neither cleared nor flagged. It is reported separately so a judged-clean suite and an unjudged one cannot look alike. Reads pytest assert, unittest self.assert*, async tests, and assertions delegated to same-file helpers. Every finding carries the commit and age of the line that introduced it; pass base_ref=origin/main for a per-pull-request gate listing only what your branch added. Names any path it could not read, and shows no findings at all when a step was blocked or truncated rather than passing a partial run off as a clean one. Pass target=demo to audit the bundled suite with no repository and no setup. Never imports or executes the suite: only ast.parse touches it. Before it reads anything of yours it runs its own bundled cases through the same analyzer and prints the result; a verdict with no positive case fails that check, and so does a broken discovery pass, and a failure withholds the findings instead of dressing them up. Zero credentials, python3 and git."
  * source_url: https://github.com/RajdeepKushwaha5/test-theater
  * tags:
  * - testing
  * - static-analysis
  * - python
  * - code-quality
+ * - effect-read-only
  * output:
  *   format: json
  * provenance:
@@ -34,7 +35,7 @@
  *   description: Optional git ref such as origin/main. When set, findings are split NEW_IN_BRANCH from PREEXISTING and only what this branch introduced is listed.
  * metadata:
  *   rote_version: 0.78.0
- *   version: 0.8.1
+ *   version: 0.9.0
  *   status: released
  *   kind: atomic
  *   flow_type: sequential
@@ -47,9 +48,16 @@
  *     - static-analysis
  *     - python
  * presentation_fixtures:
+ *   selfcheck: resources/presentation-fixtures/selfcheck/fixture.yaml
  *   audit: resources/presentation-fixtures/audit/fixture.yaml
  *   git_dates: resources/presentation-fixtures/git_dates/fixture.yaml
  * steps:
+ *   selfcheck:
+ *     type: process.exec
+ *     timeout_ms: 120000
+ *     argv:
+ *     - python3
+ *     - '@resource{selfcheck.py}'
  *   audit:
  *     type: process.exec
  *     timeout_ms: 120000
@@ -100,10 +108,11 @@ function checkStep(name: string, step: ReturnType<typeof ctx.step>) {
   return (o.output ?? {}) as { body?: Record<string, unknown> };
 }
 
+const selfStep = checkStep("selfcheck", ctx.step(stepName("selfcheck")));
 const auditStep = checkStep("audit", ctx.step(stepName("audit")));
 const gitStep = checkStep("git_dates", ctx.step(stepName("git_dates")));
 
-for (const [name, st] of [["audit", auditStep], ["git_dates", gitStep]] as const) {
+for (const [name, st] of [["selfcheck", selfStep], ["audit", auditStep], ["git_dates", gitStep]] as const) {
   if (!st) continue;
   const body = (st.body ?? {}) as { stdout?: { truncated?: boolean; bytes?: number } };
   if (body.stdout?.truncated) {
@@ -236,9 +245,39 @@ Assertions live in a same-file helper. That helper does assert, which is why the
 if (gitStatus !== "ok") tail.push(`Git join: ${gitStatus}.`);
 for (const t of tail) sections.push(t);
 
+// The assertions that prove this analyzer works live on the author's machine, where
+// nobody running the play can see them. This is that same analyzer, fed its own
+// bundled cases at run time. A rule with no positive case could be deleted without
+// the check noticing, so coverage of every verdict is itself one of the cases, and
+// so is discovery: a broken filename filter finds nothing and reads as a clean tree.
+type SelfCheck = { passed: number; total: number; failures: { case: string; detail: string }[] };
+let selfResult: SelfCheck | null = null;
+if (selfStep) {
+  const sb = (selfStep.body ?? {}) as { stdout?: { text?: string } };
+  try { selfResult = JSON.parse(sb.stdout?.text ?? '') as SelfCheck; } catch { selfResult = null; }
+}
+const selfFailed = selfResult === null || selfResult.failures.length > 0;
+const selfLine = selfResult === null
+  ? 'Self-check: NOT RUN - this analyzer did not verify itself on this machine'
+  : selfResult.failures.length === 0
+    ? `Self-check: PASSED (${selfResult.passed}/${selfResult.total} bundled analyzer cases)`
+    : `Self-check: FAILED (${selfResult.passed}/${selfResult.total}) - THIS ANALYZER IS NOT BEHAVING AS BUILT`;
+
 const target = ctx.params.target;
+if (selfFailed) {
+  const failRows = (selfResult?.failures ?? [])
+    .map((f) => `  failed case  ${f.case}: ${f.detail}`).join('\n');
+  out.human(
+    [selfLine,
+     '# ANALYZER FAILED ITS OWN SELF-CHECK - THE FINDINGS BELOW CANNOT BE RELIED ON',
+     'This is the same analyzer that would have read your suite. It was given its own bundled cases first and did not reproduce them, so nothing it reports about your code is trustworthy.',
+     failRows].join('\n\n'),
+  );
+  out.summary(selfLine);
+  out.result({ self_check: selfResult, status: 'self-check-failed', run_id: ctx.run.run_id });
+} else {
 out.human(
-  [branchMode
+  [selfLine, branchMode
     ? `# Test theatre introduced by this branch (vs ${baseRef}): ${findings.length}`
     : `# Unfailable-test audit: ${typeof target === "string" ? target : "target"}`, ...sections].join(
     "\n\n",
@@ -248,6 +287,7 @@ out.summary(
   `${totalTests} test(s): ${cannotFail.length} CANNOT_FAIL, ${noValueCheck.length} NO_VALUE_CHECK, ${weak.length} WEAK, ${examinedCount ?? "?"} EXAMINED, ${notAnalyzedCount} NOT_ANALYZED, ${unparseable.length} UNPARSEABLE`,
 );
 out.result({
+  self_check: selfResult,
   run_id: ctx.run.run_id,
   target,
   flagged: findings.length,
@@ -265,4 +305,5 @@ out.result({
   total_tests: totalTests,
   unparseable,
 });
+}
 }
