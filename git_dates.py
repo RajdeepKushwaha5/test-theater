@@ -92,6 +92,9 @@ def resolve_target(value):
     A play that needs a checked-out repository before it can show anything cannot be tried
     on a clean machine, and the first thing a reader wants is to see the output.
     """
+    if value != "demo" and not os.path.isabs(value):
+        sys.stderr.write("target must be an ABSOLUTE path, or the word demo. Got: " + value + chr(10) + "A step runs inside rote's own workspace, not the directory you were standing in, so a relative path silently scans the wrong tree. There is no correct fallback: the step cannot see your shell directory." + chr(10))
+        sys.exit(2)
     if value != "demo":
         return value
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo", "tests")

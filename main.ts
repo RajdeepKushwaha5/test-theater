@@ -34,7 +34,7 @@
  *   description: Optional git ref such as origin/main. When set, findings are split NEW_IN_BRANCH from PREEXISTING and only what this branch introduced is listed.
  * metadata:
  *   rote_version: 0.78.0
- *   version: 0.8.0
+ *   version: 0.8.1
  *   status: released
  *   kind: atomic
  *   flow_type: sequential
