@@ -62,6 +62,25 @@ the branch. An unresolvable ref falls back to a whole-repository audit and says 
 The last row is the point. A tool that reports good news teaches people to skim it,
 and a confident wrong "safe" is worse than no tool at all.
 
+## It refuses to report on a partial run
+
+Every step is inspected, not just the one carrying the payload. If a step was blocked,
+skipped, failed, or cut at rote's 64 KiB stdout preview ceiling, no findings are shown
+and the reason is named:
+
+```
+# Audit incomplete
+
+This run did not produce a usable report, so no findings are shown. Treating a
+partial run as a clean suite is the exact mistake this play exists to catch.
+
+- audit: truncated - stdout was cut at rote's 64 KiB preview ceiling (100577 bytes produced)
+```
+
+Six negative cases ship with the package (partial, truncated and blocked per step) and
+are replayed by `play audit rehearse`. All six pass. Replacing the presentation body with
+a constant makes all six fail, which is how I know the pass means something.
+
 ## It tells you what it could not read
 
 `os.walk` skips directories it cannot open, in silence. That turns a permissions problem

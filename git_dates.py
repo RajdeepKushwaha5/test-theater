@@ -13,9 +13,10 @@ import json, subprocess, sys, time
 
 
 def rc(args, cwd=None):
-    """Exit code only -- used for `merge-base --is-ancestor`, where 0/1 is the answer."""
+    """Exit code only -- used for `merge-base --is-ancestor`, where 0/1 is the answer.
+    `git` is spawned as a literal here so the command is checkable against deps.toml."""
     try:
-        return subprocess.run(args, cwd=cwd, capture_output=True,
+        return subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True,
                               text=True, timeout=20).returncode
     except Exception:
         return None
@@ -23,7 +24,8 @@ def rc(args, cwd=None):
 
 def run(args, cwd=None):
     try:
-        p = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=20)
+        p = subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True,
+                           text=True, timeout=20)
         return p.stdout.strip() if p.returncode == 0 else None
     except Exception:
         return None
@@ -33,7 +35,7 @@ def classify_branch(root, findings, base_ref):
     """A finding is PREEXISTING when the commit that introduced its line is already
     reachable from base_ref. Anything we cannot resolve stays GIT_INDETERMINATE --
     never guessed, because "this branch added it" is an accusation."""
-    if rc(["git", "-C", root, "rev-parse", "--verify", "--quiet", base_ref + "^{commit}"]) != 0:
+    if rc(["-C", root, "rev-parse", "--verify", "--quiet", base_ref + "^{commit}"]) != 0:
         for f in findings:
             f["branch_status"] = "GIT_INDETERMINATE"
         return "unresolved-base-ref"
@@ -45,7 +47,7 @@ def classify_branch(root, findings, base_ref):
             f["branch_status"] = "GIT_INDETERMINATE"
             continue
         if sha not in seen:
-            code = rc(["git", "-C", root, "merge-base", "--is-ancestor", sha, base_ref])
+            code = rc(["-C", root, "merge-base", "--is-ancestor", sha, base_ref])
             seen[sha] = ("PREEXISTING" if code == 0
                          else "NEW_IN_BRANCH" if code == 1 else "GIT_INDETERMINATE")
         f["branch_status"] = seen[sha]
@@ -84,7 +86,7 @@ def main():
 
     import os
     base = target if os.path.isdir(target) else os.path.dirname(target)
-    root = run(["git", "-C", base, "rev-parse", "--show-toplevel"])
+    root = run(["-C", base, "rev-parse", "--show-toplevel"])
 
     if root is None:
         for f in findings:
@@ -94,7 +96,7 @@ def main():
 
     # A shallow clone can only attribute every line to the one commit it has, which
     # would report a uniform, meaningless age. Say so instead of inventing history.
-    if run(["git", "-C", root, "rev-parse", "--is-shallow-repository"]) == "true":
+    if run(["-C", root, "rev-parse", "--is-shallow-repository"]) == "true":
         for f in findings:
             f["git"] = {"status": "shallow-clone"}
         print(emit("shallow-clone", root, findings, scan=scan))
@@ -113,7 +115,7 @@ def main():
             f["git"] = cache[key]
             continue
         line = f.get("line") or 1
-        out = run(["git", "-C", root, "blame", "-L", "%d,%d" % (line, line),
+        out = run(["-C", root, "blame", "-L", "%d,%d" % (line, line),
                    "--porcelain", "--", rel])
         if not out:
             info = {"status": "unknown"}
