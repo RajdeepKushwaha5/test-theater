@@ -26,6 +26,17 @@ A shallow clone is reported as `shallow-clone` rather than given a uniform,
 meaningless date, and a target outside a repository is reported as `not-a-git-repo`.
 Neither fails the run.
 
+## Try it with nothing set up
+
+```bash
+rote play run https://play.modiqo.ai/rajdeepkushwaha/test-theater target=demo
+```
+
+That audits a suite bundled with the play, so there is nothing to clone and no repository
+to point at. It shows all five verdicts, including `NOT_ANALYZED`, which the fixtures alone
+never produced. There is no git history in a bundled directory, so the git join reports
+`not-a-git-repo` rather than pretending to dates it does not have.
+
 ## Use it as a pull-request gate
 
 ```bash
@@ -120,12 +131,22 @@ dataflow analysis.
 ```bash
 python3 verify-fixtures.py
 # 16 expectation(s), 0 mismatch(es)
+
+python3 verify-contract.py
+# 9 field(s) checked, all emitted
 ```
 
 Each fixture test carries a `# EXPECT:` comment stating the verdict it must receive, and
 that script checks every one of them, exiting non-zero on a mismatch.
 
-It exists because the sentence that used to sit here — "all 16 match" — was false. When the
+`verify-contract.py` checks the other seam. The producers are Python and the presentation
+is TypeScript, so nothing type-checks between them: a field renamed on the Python side
+arrives in TypeScript as `undefined` and renders as a blank, not an error. The script reads
+every `parsed.<field>` the presentation touches, runs the producers on the bundled demo, and
+fails if any is missing. Renaming `examined_count` to `examined_kount` in a scratch copy is
+caught, exit code 1.
+
+The fixture checker exists because the sentence that used to sit here — "all 16 match" — was false. When the
 `mock-only` rule was removed as a false positive, `test_service_called` stopped matching its
 expectation and nothing noticed, because the claim was prose. `svc.fetch.assert_called_once_with(3)`
 does check a value, so `EXAMINED` was the right answer and the comment was the stale part.

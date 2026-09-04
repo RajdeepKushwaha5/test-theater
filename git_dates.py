@@ -9,7 +9,7 @@ argv[3] = optional base ref (e.g. origin/main). When given, each finding is also
           classified NEW_IN_BRANCH / PREEXISTING by asking whether the commit that
           introduced its line is already an ancestor of that base.
 """
-import json, subprocess, sys, time
+import json, os, subprocess, sys, time
 
 
 def rc(args, cwd=None):
@@ -86,8 +86,19 @@ def emit(status, root, findings, base_ref=None, branch_status=None, scan=None,
     }, separators=(",", ":"))
 
 
+def resolve_target(value):
+    """`demo` means the trajectory bundled with the play.
+
+    A play that needs a checked-out repository before it can show anything cannot be tried
+    on a clean machine, and the first thing a reader wants is to see the output.
+    """
+    if value != "demo":
+        return value
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo", "tests")
+
+
 def main():
-    target = sys.argv[1]
+    target = resolve_target(sys.argv[1])
     payload = json.loads(sys.argv[2])
     # audit_dir emits an object carrying scan completeness; tolerate the old bare list.
     counts = None
@@ -103,7 +114,6 @@ def main():
                       "not_analyzed_count": payload.get("not_analyzed_count", 0)}
     base_ref = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 
-    import os
     base = target if os.path.isdir(target) else os.path.dirname(target)
     root = run(["-C", base, "rev-parse", "--show-toplevel"])
 

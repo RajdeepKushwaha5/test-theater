@@ -15,7 +15,18 @@ sys.dont_write_bytecode = True  # never ship a __pycache__ into the play package
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import detect
 
-root = sys.argv[1]
+def resolve_target(value):
+    """`demo` means the trajectory bundled with the play.
+
+    A play that needs a checked-out repository before it can show anything cannot be tried
+    on a clean machine, and the first thing a reader wants is to see the output.
+    """
+    if value != "demo":
+        return value
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo", "tests")
+
+
+root = resolve_target(sys.argv[1])
 if not os.path.exists(root):
     print("error: no such file or directory: %s" % root, file=sys.stderr)
     sys.exit(1)
