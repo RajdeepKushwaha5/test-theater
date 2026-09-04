@@ -59,7 +59,7 @@ def emit(status, root, findings, base_ref=None, branch_status=None, scan=None,
     """Only flagged findings are enumerated. Examined-and-clean tests are reported as a
     count: listing hundreds of rows is noise, and the full document would exceed the
     64 KiB a step's captured stdout carries. Tests whose assertions were delegated to a
-    helper are counted separately, because those are a blind spot rather than a pass."""
+    helper are counted separately, because those were never judged, not judged clean."""
     quiet = (None, "EXAMINED", "NOT_ANALYZED")
     flagged = [f for f in findings if f.get("verdict") not in quiet]
     # audit_dir now sends counts and only the flagged rows. An older observation may still

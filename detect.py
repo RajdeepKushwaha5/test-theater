@@ -122,9 +122,10 @@ def analyze(path):
         helper_assert = bool((called & asserting) - {fn.name})
 
         # EXAMINED is the fall-through: the test was read and no theatre pattern matched.
-        # NOT_ANALYZED is reserved for a real blind spot, where the assertions live in a
-        # helper this reader did not follow. Collapsing the two made a clean suite and an
-        # unread one look identical, which is the failure this play exists to catch.
+        # NOT_ANALYZED is for a test whose assertions live in a same-file helper. That
+        # helper is known to assert, which is why the test is not flagged, but what it
+        # asserts was never judged. Collapsing the two made a judged-clean suite and an
+        # unjudged one look identical, which is the failure this play exists to catch.
         v, why = "EXAMINED", ""
         if helper_assert and not asserts and not unit_as:
             v, why = "NOT_ANALYZED", "assertions-delegated-to-helper"

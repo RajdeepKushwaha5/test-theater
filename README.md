@@ -58,16 +58,16 @@ the branch. An unresolvable ref falls back to a whole-repository audit and says 
 | `NO_VALUE_CHECK` | Fails only if the code *raises*. No assertion anywhere — not in the test, not in a helper it calls. |
 | `WEAK` | Permanently skipped, or a byte-identical duplicate of another test body. |
 | `EXAMINED` | Read, and no pattern matched. Not proven unfailable, and **not a claim the test is good.** |
-| `NOT_ANALYZED` | Assertions are delegated to a helper this reader did not follow, so the test was **not** checked. A blind spot, not a pass. |
+| `NOT_ANALYZED` | Assertions live in a same-file helper. That helper *does* assert, which is why the test is not flagged, but whether it checks a real value was never judged. Neither cleared nor flagged. |
 
 The last two rows used to be one row, and that was a defect. Everything that was not
 flagged came back `NOT_ANALYZED`, which reads as "the tool failed to look" for tests it had
 in fact read and found clean. Worse, it hid the tests it genuinely could not read inside
 the same bucket.
 
-Across four public suites that bucket held 1,273 tests. **1,263 had been examined and were
-clean. 10 were real blind spots**, all in flask, and they were invisible among 369 rows in
-the same section. A clean suite and an unread one are now impossible to confuse.
+Across four public suites that bucket held 1,273 tests. **1,263 had been examined and judged
+clean. 10 were never judged at all**, all in flask, and they were invisible among 369 rows
+in the same section. A clean suite and an unread one are now impossible to confuse.
 
 ## It refuses to report on a partial run
 
