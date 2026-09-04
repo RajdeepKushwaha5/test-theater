@@ -62,6 +62,21 @@ the branch. An unresolvable ref falls back to a whole-repository audit and says 
 The last row is the point. A tool that reports good news teaches people to skim it,
 and a confident wrong "safe" is worse than no tool at all.
 
+## It tells you what it could not read
+
+`os.walk` skips directories it cannot open, in silence. That turns a permissions problem
+into a shorter, cleaner-looking report, which is the same defect this tool exists to find:
+
+```
+## Incomplete scan (1 path(s) unreadable)
+These were not read, so this report is partial and a low finding count does not
+mean a clean suite.
+- locked (PermissionError)
+```
+
+A file it cannot open or decode is named too, rather than dropped. When everything was
+readable the section does not appear at all.
+
 ## What it deliberately does not do
 
 It does **not** measure whether the surviving tests would catch a real defect. That

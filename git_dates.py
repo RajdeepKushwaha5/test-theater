@@ -52,7 +52,7 @@ def classify_branch(root, findings, base_ref):
     return "ok"
 
 
-def emit(status, root, findings, base_ref=None, branch_status=None):
+def emit(status, root, findings, base_ref=None, branch_status=None, scan=None):
     """Only flagged findings are enumerated. NOT_ANALYZED is reported as a count:
     listing hundreds of "not analyzed" rows is noise, and the full document would
     exceed the 64 KiB a step's captured stdout carries."""
@@ -64,13 +64,22 @@ def emit(status, root, findings, base_ref=None, branch_status=None):
         "base_ref_status": branch_status,
         "total_tests": len(findings),
         "not_analyzed_count": len(findings) - len(flagged),
+        "files_scanned": (scan or {}).get("files_scanned"),
+        "unreadable": (scan or {}).get("unreadable", []),
         "findings": flagged,
     }, separators=(",", ":"))
 
 
 def main():
     target = sys.argv[1]
-    findings = json.loads(sys.argv[2])
+    payload = json.loads(sys.argv[2])
+    # audit_dir emits an object carrying scan completeness; tolerate the old bare list.
+    if isinstance(payload, list):
+        findings, scan = payload, {"files_scanned": None, "unreadable": []}
+    else:
+        findings = payload["findings"]
+        scan = {"files_scanned": payload.get("files_scanned"),
+                "unreadable": payload.get("unreadable", [])}
     base_ref = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 
     import os
@@ -80,7 +89,7 @@ def main():
     if root is None:
         for f in findings:
             f["git"] = {"status": "not-a-git-repo"}
-        print(emit("not-a-git-repo", None, findings))
+        print(emit("not-a-git-repo", None, findings, scan=scan))
         return
 
     # A shallow clone can only attribute every line to the one commit it has, which
@@ -88,7 +97,7 @@ def main():
     if run(["git", "-C", root, "rev-parse", "--is-shallow-repository"]) == "true":
         for f in findings:
             f["git"] = {"status": "shallow-clone"}
-        print(emit("shallow-clone", root, findings))
+        print(emit("shallow-clone", root, findings, scan=scan))
         return
 
     now = time.time()
@@ -125,7 +134,7 @@ def main():
         f["git"] = info
 
     branch_status = classify_branch(root, findings, base_ref) if base_ref else None
-    print(emit("ok", root, findings, base_ref, branch_status))
+    print(emit("ok", root, findings, base_ref, branch_status, scan))
 
 
 if __name__ == "__main__":
