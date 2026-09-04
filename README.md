@@ -57,10 +57,17 @@ the branch. An unresolvable ref falls back to a whole-repository audit and says 
 | `CANNOT_FAIL` | Provably cannot fail. Every assertion is on literals (`assert 1 == 1`), or the assertion is swallowed by a bare `except: pass`. |
 | `NO_VALUE_CHECK` | Fails only if the code *raises*. No assertion anywhere — not in the test, not in a helper it calls. |
 | `WEAK` | Permanently skipped, or a byte-identical duplicate of another test body. |
-| `NOT_ANALYZED` | Not proven unfailable. **This is not a claim that the test is good.** |
+| `EXAMINED` | Read, and no pattern matched. Not proven unfailable, and **not a claim the test is good.** |
+| `NOT_ANALYZED` | Assertions are delegated to a helper this reader did not follow, so the test was **not** checked. A blind spot, not a pass. |
 
-The last row is the point. A tool that reports good news teaches people to skim it,
-and a confident wrong "safe" is worse than no tool at all.
+The last two rows used to be one row, and that was a defect. Everything that was not
+flagged came back `NOT_ANALYZED`, which reads as "the tool failed to look" for tests it had
+in fact read and found clean. Worse, it hid the tests it genuinely could not read inside
+the same bucket.
+
+Across four public suites that bucket held 1,273 tests. **1,263 had been examined and were
+clean. 10 were real blind spots**, all in flask, and they were invisible among 369 rows in
+the same section. A clean suite and an unread one are now impossible to confuse.
 
 ## It refuses to report on a partial run
 
@@ -111,23 +118,30 @@ dataflow analysis.
 ## Verify it
 
 ```bash
-python3 detect.py fixtures/tests/test_calc.py
-python3 detect.py fixtures/tests/test_styles.py
+python3 verify-fixtures.py
+# 16 expectation(s), 0 mismatch(es)
 ```
 
-Each fixture test carries a `# EXPECT:` comment stating the verdict it must receive.
-All 16 match.
+Each fixture test carries a `# EXPECT:` comment stating the verdict it must receive, and
+that script checks every one of them, exiting non-zero on a mismatch.
+
+It exists because the sentence that used to sit here — "all 16 match" — was false. When the
+`mock-only` rule was removed as a false positive, `test_service_called` stopped matching its
+expectation and nothing noticed, because the claim was prose. `svc.fetch.assert_called_once_with(3)`
+does check a value, so `EXAMINED` was the right answer and the comment was the stale part.
 
 ## On real codebases
 
 Four public repositories, no execution, `python3` + `git` only:
 
-| repo | tests | flagged |
-|---|---:|---:|
-| psf/requests | 347 | 11 |
-| pallets/flask | 372 | 3 |
-| pallets/click | 538 | 7 |
-| boto/boto3 | 444 | 1 |
+Measured on clean upstream trees, pinned so you can reproduce them:
+
+| repo | commit | tests | flagged | examined | not analyzed |
+|---|---|---:|---:|---:|---:|
+| psf/requests | `5460f467` | 347 | 11 | 336 | 0 |
+| pallets/flask | `d318b683` | 372 | 3 | 359 | 10 |
+| pallets/click | `36baa15` | 538 | 7 | 531 | 0 |
+| boto/boto3 | `81ae0477` | 562 | 8 | 495 | 59 |
 
 Getting there meant removing **seven** false-positive classes, each found by running
 against code the author did not write:
@@ -152,6 +166,19 @@ test_packages.py:4 — added 2017-05-29 (3382d ago, 1278ecdf)
 
 Every removal made the tool claim *less*. That is the point: a confident wrong
 "this test is worthless" costs a reviewer more than silence.
+
+## boto3 used to fail outright
+
+The `audit` step emitted a row per test. On boto3 that came to **70,121 bytes**, past
+rote's 64 KiB stdout preview ceiling, so the next step received truncated JSON and the run
+died. The play failed *safely* — it refuses to show findings from a partial run, which is
+the whole design — but "safely unusable" is still unusable, and the number published here
+for boto3 had been measured back when the suite was small enough to fit.
+
+Only flagged rows travel between steps now, with the rest carried as counts. Same suite,
+same information: **1,212 bytes**. This is the third time the same lesson has come up in
+this play, after the git-blame join and the whole-repo enumeration: never move a row when a
+count will do.
 
 ## Licence
 

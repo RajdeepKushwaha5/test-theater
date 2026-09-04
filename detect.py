@@ -121,9 +121,13 @@ def analyze(path):
         # does this test delegate its assertions to a helper defined in this file?
         helper_assert = bool((called & asserting) - {fn.name})
 
-        v, why = "NOT_ANALYZED", ""
+        # EXAMINED is the fall-through: the test was read and no theatre pattern matched.
+        # NOT_ANALYZED is reserved for a real blind spot, where the assertions live in a
+        # helper this reader did not follow. Collapsing the two made a clean suite and an
+        # unread one look identical, which is the failure this play exists to catch.
+        v, why = "EXAMINED", ""
         if helper_assert and not asserts and not unit_as:
-            v, why = "NOT_ANALYZED", ""
+            v, why = "NOT_ANALYZED", "assertions-delegated-to-helper"
         elif asserts and not unit_as and all(const_only(a.test) for a in asserts):
             v, why = "CANNOT_FAIL", "asserts-literal"
         elif unit_literal and not asserts:
@@ -136,7 +140,7 @@ def analyze(path):
             v, why = "WEAK", "permanently-skipped"
 
         h = norm(ast.Module(body=fn.body, type_ignores=[]))
-        if v == "NOT_ANALYZED" and h in bodies:
+        if v in ("EXAMINED", "NOT_ANALYZED") and h in bodies:
             v, why = "WEAK", "duplicate-body:" + bodies[h]
         bodies.setdefault(h, fn.name)
         out.append({"test": fn.name, "verdict": v, "reason": why, "line": fn.lineno})

@@ -62,8 +62,20 @@ else:
                 full = os.path.join(dirpath, fn)
                 scan(full, os.path.relpath(full, root))
 
+# Only flagged rows travel to the next step. A whole-suite dump crosses rote's 64 KiB
+# stdout preview ceiling on a large suite: boto/boto3 produced 70,121 bytes, the audit
+# came back truncated, and the run failed outright. The counts carry what the enumeration
+# used to, at a fixed size.
+QUIET = ("EXAMINED", "NOT_ANALYZED")
+flagged = [f for f in results if f.get("verdict") not in QUIET]
+examined = sum(1 for f in results if f.get("verdict") == "EXAMINED")
+not_analyzed = sum(1 for f in results if f.get("verdict") == "NOT_ANALYZED")
+
 print(json.dumps({
     "files_scanned": files_scanned,
     "unreadable": unreadable,
-    "findings": results,
+    "total_tests": len(results),
+    "examined_count": examined,
+    "not_analyzed_count": not_analyzed,
+    "findings": flagged,
 }, separators=(",", ":")))

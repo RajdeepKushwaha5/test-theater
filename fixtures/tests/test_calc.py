@@ -19,7 +19,7 @@ def test_math_is_math():
     assert 1 == 1
 
 
-# EXPECT: NO_VALUE_CHECK / mock-only
+# EXPECT: EXAMINED  (assert_called_once_with does check a value, so this is not theatre)
 def test_service_called():
     svc = Mock()
     svc.fetch(3)
@@ -34,7 +34,7 @@ def test_clamp_never_raises():
         pass
 
 
-# EXPECT: NOT_ANALYZED  (no-subject-call was dropped: unsound for fixture-based tests)
+# EXPECT: EXAMINED  (no-subject-call was dropped: unsound for fixture-based tests)
 def test_expected_shape():
     payload = {"a": 1, "b": 2}
     assert payload["a"] == 1
@@ -46,7 +46,7 @@ def test_clamp_upper():
     assert clamp(9, 1, 3) == 3
 
 
-# EXPECT: NOT_ANALYZED  (genuine test)
+# EXPECT: EXAMINED  (genuine test)
 def test_is_even_true():
     assert is_even(4) is True
 
@@ -56,6 +56,6 @@ def test_is_even_returns_true_for_four():
     assert is_even(4) is True
 
 
-# EXPECT: NOT_ANALYZED  (genuine test)
+# EXPECT: EXAMINED  (genuine test)
 def test_clamp_lower_bound():
     assert clamp(-5, 1, 3) == 1

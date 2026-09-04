@@ -54,18 +54,32 @@ def classify_branch(root, findings, base_ref):
     return "ok"
 
 
-def emit(status, root, findings, base_ref=None, branch_status=None, scan=None):
-    """Only flagged findings are enumerated. NOT_ANALYZED is reported as a count:
-    listing hundreds of "not analyzed" rows is noise, and the full document would
-    exceed the 64 KiB a step's captured stdout carries."""
-    flagged = [f for f in findings if f.get("verdict") not in (None, "NOT_ANALYZED")]
+def emit(status, root, findings, base_ref=None, branch_status=None, scan=None,
+         counts=None):
+    """Only flagged findings are enumerated. Examined-and-clean tests are reported as a
+    count: listing hundreds of rows is noise, and the full document would exceed the
+    64 KiB a step's captured stdout carries. Tests whose assertions were delegated to a
+    helper are counted separately, because those are a blind spot rather than a pass."""
+    quiet = (None, "EXAMINED", "NOT_ANALYZED")
+    flagged = [f for f in findings if f.get("verdict") not in quiet]
+    # audit_dir now sends counts and only the flagged rows. An older observation may still
+    # carry every row, so fall back to counting what actually arrived.
+    if counts:
+        total = counts["total_tests"]
+        examined = counts["examined_count"]
+        n_unanalyzed = counts["not_analyzed_count"]
+    else:
+        total = len(findings)
+        n_unanalyzed = sum(1 for f in findings if f.get("verdict") == "NOT_ANALYZED")
+        examined = total - len(flagged) - n_unanalyzed
     return json.dumps({
         "git_status": status,
         "repo_root": root,
         "base_ref": base_ref or None,
         "base_ref_status": branch_status,
-        "total_tests": len(findings),
-        "not_analyzed_count": len(findings) - len(flagged),
+        "total_tests": total,
+        "examined_count": examined,
+        "not_analyzed_count": n_unanalyzed,
         "files_scanned": (scan or {}).get("files_scanned"),
         "unreadable": (scan or {}).get("unreadable", []),
         "findings": flagged,
@@ -76,12 +90,17 @@ def main():
     target = sys.argv[1]
     payload = json.loads(sys.argv[2])
     # audit_dir emits an object carrying scan completeness; tolerate the old bare list.
+    counts = None
     if isinstance(payload, list):
         findings, scan = payload, {"files_scanned": None, "unreadable": []}
     else:
         findings = payload["findings"]
         scan = {"files_scanned": payload.get("files_scanned"),
                 "unreadable": payload.get("unreadable", [])}
+        if "total_tests" in payload:
+            counts = {"total_tests": payload["total_tests"],
+                      "examined_count": payload.get("examined_count", 0),
+                      "not_analyzed_count": payload.get("not_analyzed_count", 0)}
     base_ref = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 
     import os
@@ -91,7 +110,7 @@ def main():
     if root is None:
         for f in findings:
             f["git"] = {"status": "not-a-git-repo"}
-        print(emit("not-a-git-repo", None, findings, scan=scan))
+        print(emit("not-a-git-repo", None, findings, scan=scan, counts=counts))
         return
 
     # A shallow clone can only attribute every line to the one commit it has, which
@@ -99,14 +118,14 @@ def main():
     if run(["-C", root, "rev-parse", "--is-shallow-repository"]) == "true":
         for f in findings:
             f["git"] = {"status": "shallow-clone"}
-        print(emit("shallow-clone", root, findings, scan=scan))
+        print(emit("shallow-clone", root, findings, scan=scan, counts=counts))
         return
 
     now = time.time()
     cache = {}
     for f in findings:
         # only the flagged ones are worth a blame call
-        if f.get("verdict") in (None, "NOT_ANALYZED"):
+        if f.get("verdict") in (None, "EXAMINED", "NOT_ANALYZED"):
             f["git"] = {"status": "not-blamed"}
             continue
         rel = os.path.join(base, f.get("file", ""))
@@ -136,7 +155,7 @@ def main():
         f["git"] = info
 
     branch_status = classify_branch(root, findings, base_ref) if base_ref else None
-    print(emit("ok", root, findings, base_ref, branch_status, scan))
+    print(emit("ok", root, findings, base_ref, branch_status, scan, counts=counts))
 
 
 if __name__ == "__main__":

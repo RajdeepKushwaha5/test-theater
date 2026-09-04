@@ -4,11 +4,11 @@ from src.calc import add, is_even
 
 
 class CalcTests(unittest.TestCase):
-    # EXPECT: NOT_ANALYZED  (genuine unittest assertion — must NOT be CANNOT_FAIL)
+    # EXPECT: EXAMINED  (genuine unittest assertion — must NOT be CANNOT_FAIL)
     def test_add_two_numbers(self):
         self.assertEqual(add(2, 3), 5)
 
-    # EXPECT: NOT_ANALYZED  (assertTrue on a real call)
+    # EXPECT: EXAMINED  (assertTrue on a real call)
     def test_even_number(self):
         self.assertTrue(is_even(8))
 
@@ -21,7 +21,7 @@ class CalcTests(unittest.TestCase):
         self.assertEqual(2 + 2, 4)
 
 
-# EXPECT: NOT_ANALYZED  (async test with a real assertion)
+# EXPECT: EXAMINED  (async test with a real assertion)
 async def test_async_add():
     assert add(1, 1) == 2
 
