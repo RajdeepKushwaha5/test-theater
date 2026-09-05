@@ -19,7 +19,8 @@ a broken analyzer is worse than no check at all:
 
     selfcheck.py            -> JSON {passed, total, failures}
 """
-import json, os, re, subprocess, sys, tempfile
+import json
+import os, os, re, subprocess, sys, tempfile
 
 sys.dont_write_bytecode = True
 
@@ -118,6 +119,23 @@ def main():
     except Exception as e:
         failures.append({"case": "discovery:finds-a-test-file",
                          "detail": "discovery failed: %s" % e})
+
+
+    # ---- git escapes non-ASCII paths before printing them, so a wrapper without
+    # core.quotePath=false reads back a filename that does not exist. On a repository
+    # with an accented filename this made blast-radius report no changes at all.
+    total += 1
+    try:
+        _src = open(os.path.join(HERE, "git_dates.py"), encoding="utf-8").read()
+        if "core.quotePath=false" not in _src:
+            failures.append({
+                "case": "paths:non-ascii-are-not-escaped",
+                "detail": "the git wrapper does not pass core.quotePath=false, so a path "
+                          "with a non-ASCII character comes back as an escaped string "
+                          "and every file named that way is silently missed"})
+    except OSError as _e:
+        failures.append({"case": "paths:non-ascii-are-not-escaped",
+                         "detail": "could not read the analyzer: %s" % _e})
 
     print(json.dumps({
         "passed": total - len(failures),

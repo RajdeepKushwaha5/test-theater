@@ -16,7 +16,7 @@ def rc(args, cwd=None):
     """Exit code only -- used for `merge-base --is-ancestor`, where 0/1 is the answer.
     `git` is spawned as a literal here so the command is checkable against deps.toml."""
     try:
-        return subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True,
+        return subprocess.run(["git", "-c", "core.quotePath=false"] + list(args), cwd=cwd, capture_output=True,
                               text=True, timeout=20).returncode
     except Exception:
         return None
@@ -24,7 +24,7 @@ def rc(args, cwd=None):
 
 def run(args, cwd=None):
     try:
-        p = subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True,
+        p = subprocess.run(["git", "-c", "core.quotePath=false"] + list(args), cwd=cwd, capture_output=True,
                            text=True, timeout=20)
         return p.stdout.strip() if p.returncode == 0 else None
     except Exception:
