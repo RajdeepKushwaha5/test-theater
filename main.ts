@@ -11,7 +11,7 @@
  * @rote-frontmatter
  * ---
  * name: test-theater
- * description: "Some tests pass no matter what the code does. This finds them, without running your suite. It reads the test files and reports four things. CANNOT_FAIL means the test only checks literals, like assert 1 == 1, or it swallows its own errors in a bare except. NO_VALUE_CHECK means there is no assertion at all, so the test only fails if the code crashes. WEAK means the test is permanently skipped, or it is a copy of another test. EXAMINED means it read the test and found nothing wrong, which is not the same as saying the test is good. NOT_ANALYZED means the assertions live in a helper function, so it could not judge them either way, and it says so rather than guessing. Every finding tells you which commit added that line and how long ago. Pass base_ref=origin/main and it only reports what your branch added, so you can use it on a pull request. Pass target=demo to try it with nothing set up. It never runs your tests and never imports your code. Before it looks at your code it runs its own test cases through the same analyzer and prints the result. If those fail it shows you that instead of findings. Read-only, no credentials, no network. Needs python3 and git."
+ * description: "Some tests pass no matter what the code does. This finds them, without running your suite. It reads the test files and gives every test one of five answers. CANNOT_FAIL means the test only checks literals, like assert 1 == 1, or it swallows its own errors in a bare except. NO_VALUE_CHECK means there is no assertion at all, so the test only fails if the code crashes. WEAK means the test is permanently skipped, or it is a copy of another test. EXAMINED means it read the test and found nothing wrong, which is not the same as saying the test is good. NOT_ANALYZED means the assertions live in a helper function, so it could not judge them either way, and it says so rather than guessing. Every finding tells you which commit added that line and how long ago. Pass base_ref=origin/main and it only reports what your branch added, so you can use it on a pull request. Pass target=demo to try it with nothing set up. It never runs your tests and never imports your code. Before it looks at your code it runs its own test cases through the same analyzer and prints the result. If those fail it shows you that instead of findings. Read-only, no credentials, no network. Needs python3 and git."
  * source_url: https://github.com/RajdeepKushwaha5/test-theater
  * tags:
  * - testing
@@ -35,7 +35,7 @@
  *   description: Optional git ref such as origin/main. When set, findings are split NEW_IN_BRANCH from PREEXISTING and only what this branch introduced is listed.
  * metadata:
  *   rote_version: 0.78.0
- *   version: 0.9.1
+ *   version: 0.9.3
  *   status: released
  *   kind: atomic
  *   flow_type: sequential
@@ -288,6 +288,14 @@ out.summary(
 );
 out.result({
   self_check: selfResult,
+  // three views of one run. The listing is capped in the
+  // human view, so which view is canonical is stated here
+  // rather than left for a reader to discover.
+  representations: {
+    human: "complete for the suite that was read: every flagged test with its verdict, reason, commit and age, plus the examined and not-analyzed counts",
+    json: "canonical superset: the same findings plus the self-check result, the scan completeness fields and the unreadable paths",
+    summary: "intentionally lossy: one line of counts by verdict",
+  },
   run_id: ctx.run.run_id,
   target,
   flagged: findings.length,
